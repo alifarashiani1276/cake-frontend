@@ -1,5 +1,5 @@
 // متن‌ها و اطلاعات سایت اینجاست؛ مقدارهای نمونه را با اطلاعات واقعی عوض کنید.
-export const BRAND = "کیک‌خانه"; // نام نمونه
+export const BRAND = "کیکا";
 
 export const NAV = [
   { label: "شیرینی‌ها", href: "#menu", id: "menu" },

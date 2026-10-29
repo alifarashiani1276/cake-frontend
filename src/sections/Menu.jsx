@@ -5,16 +5,15 @@ const img = (id, size) => `${import.meta.env.BASE_URL}cards/${id}-${size}.webp`;
 // سه کارت عکس‌دار که با اسکرول روی هم می‌نشینند
 export default function Menu() {
   return (
-    <section id="menu" className="relative z-10 -mt-[100svh] rounded-t-[2rem] bg-dusk text-cream shadow-[0_-30px_80px_-10px_rgb(0_0_0/.8)] md:rounded-t-[3.5rem]">
-      <div className="candle-glow pointer-events-none absolute inset-x-0 top-0 h-[60svh]" />
+    <section id="menu" data-tone="dark" className="relative z-10 -mt-[100svh] rounded-t-[2rem] bg-cream text-ink shadow-[0_-30px_80px_-10px_rgb(0_0_0/.8)] md:rounded-t-[3.5rem]">
       <div className="relative mx-auto max-w-6xl px-5 pt-40 md:px-8 md:pt-56">
         <h2 className="m-0 text-[clamp(3.2rem,11vw,9rem)] font-black leading-[1.05] tracking-tight">{MENU.heading}</h2>
-        <p className="mt-6 max-w-md text-lg leading-9 text-cream/60">{MENU.intro}</p>
+        <p className="mt-6 max-w-md text-lg leading-9 text-clay">{MENU.intro}</p>
 
         <ul className="m-0 mt-20 list-none p-0 pb-[12svh]">
           {MENU.items.map((it, i) => (
             <li key={it.id} className="sticky mb-[10svh]" style={{ top: `calc(84px + ${i * 20}px)` }}>
-              <article className="relative isolate h-[72svh] min-h-[26rem] overflow-hidden rounded-[2rem] bg-ink shadow-[0_-20px_60px_-20px_rgb(0_0_0/.6)] md:h-[78svh] md:rounded-[2.5rem]">
+              <article className="relative isolate h-[72svh] min-h-[26rem] overflow-hidden rounded-[2rem] bg-ink shadow-[0_30px_60px_-30px_rgb(58_40_26/.55)] md:h-[78svh] md:rounded-[2.5rem]">
                 <img
                   src={img(it.id, "lg")}
                   srcSet={`${img(it.id, "sm")} 800w, ${img(it.id, "lg")} 1600w`}

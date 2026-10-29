@@ -34,7 +34,7 @@ export default function Hero() {
 
   return (
     <main id="hero" ref={trackRef} className="relative" style={{ height: `calc(200svh + ${FRAME_COUNT * SCROLL_PX_PER_FRAME}px)` }}>
-      <div className="sticky top-0 h-svh w-full overflow-hidden bg-night">
+      <div data-tone="light" className="sticky top-0 h-svh w-full overflow-hidden bg-night">
         <div className={`transition-opacity duration-1000 ${ready ? "opacity-100" : "opacity-0"}`}>
           <FrameCanvas ref={wrapRef} canvasRef={canvasRef} />
         </div>

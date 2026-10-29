@@ -2,22 +2,23 @@
 
 /* پالت: سه رنگ نرم و اصلی تصویر مرجع + قهوه‌ای پالت فقط برای متن‌های ثانویه */
 @theme {
+  /* پالت برند کیکا */
   --color-night: #050403;   /* فقط سیاهی صحنهٔ ویدیو */
-  --color-cream: #f1e5d0;   /* زمینهٔ اصلی */
-  --color-linen: #e1d1ba;   /* سطح‌ها و کارت‌ها */
-  --color-sage: #d3cdb1;    /* خط‌ها و بخش‌های آرام */
-  --color-clay: #7a5636;    /* متن ثانویه (قهوه‌ای پالت) */
-  --color-ink: #2a1d14;
-  --color-dusk: #130d0a;    /* زمینهٔ تیرهٔ گرم بعد از صحنه */
-  --color-ember: #ffb35c;   /* نور شمع */
-  --color-berry: #d4405a;   /* توت‌فرنگی */     /* متن اصلی: قهوه‌ای بسیار تیره و گرم */
+  --color-clay: #7A5636;    /* قهوه‌ای تیره */
+  --color-caramel: #C49A6C; /* کارامل */
+  --color-ember: #C49A6C;   /* همان کارامل؛ برای کلاس‌های قبلی */
+  --color-cream: #F1E5D0;
+  --color-linen: #E1D1BA;
+  --color-sage: #D3CDB1;
+  --color-ink: #3A281A;     /* متن اصلی: قهوه‌ای بسیار تیره (از قهوه‌ای پالت) */
+  --color-dusk: #1D130C;
   --font-display: "Morabba", "Vazirmatn", system-ui, sans-serif;
 }
 
 html { scroll-padding-top: 72px; scroll-behavior: smooth; }
-html, body, #root { margin: 0; background: var(--color-dusk); }
+html, body, #root { margin: 0; background: var(--color-cream); }
 body {
-  color: var(--color-cream);
+  color: var(--color-ink);
   font-family: var(--font-display);
   -webkit-font-smoothing: antialiased;
   overflow-x: hidden;

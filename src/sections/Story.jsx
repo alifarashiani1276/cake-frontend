@@ -22,7 +22,7 @@ export default function Story() {
   }, [words.length]);
 
   return (
-    <section id="story" ref={sec} className="relative h-[240svh] bg-dusk text-cream">
+    <section id="story" ref={sec} data-tone="dark" className="relative h-[240svh] bg-linen text-ink">
       <div className="sticky top-0 flex h-svh items-center">
         <p className="mx-auto m-0 max-w-5xl px-6 text-balance text-[clamp(2rem,5vw,4.6rem)] font-black leading-[1.5] tracking-tight md:px-10">
           {words.map((w, i) => (
