@@ -1,0 +1,60 @@
+@import "tailwindcss";
+
+/* پالت: سه رنگ نرم و اصلی تصویر مرجع + قهوه‌ای پالت فقط برای متن‌های ثانویه */
+@theme {
+  --color-night: #050403;   /* فقط سیاهی صحنهٔ ویدیو */
+  --color-cream: #f1e5d0;   /* زمینهٔ اصلی */
+  --color-linen: #e1d1ba;   /* سطح‌ها و کارت‌ها */
+  --color-sage: #d3cdb1;    /* خط‌ها و بخش‌های آرام */
+  --color-clay: #7a5636;    /* متن ثانویه (قهوه‌ای پالت) */
+  --color-ink: #2a1d14;
+  --color-dusk: #130d0a;    /* زمینهٔ تیرهٔ گرم بعد از صحنه */
+  --color-ember: #ffb35c;   /* نور شمع */
+  --color-berry: #d4405a;   /* توت‌فرنگی */     /* متن اصلی: قهوه‌ای بسیار تیره و گرم */
+  --font-display: "Morabba", "Vazirmatn", system-ui, sans-serif;
+}
+
+html { scroll-padding-top: 72px; scroll-behavior: smooth; }
+html, body, #root { margin: 0; background: var(--color-dusk); }
+body {
+  color: var(--color-cream);
+  font-family: var(--font-display);
+  -webkit-font-smoothing: antialiased;
+  overflow-x: hidden;
+}
+@media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+
+:focus-visible { outline: 2px solid var(--color-ember); outline-offset: 3px; border-radius: 6px; }
+
+/* لبه‌های قاب را در سیاهی صفحه محو می‌کند تا مرز ویدیو دیده نشود */
+.frame-feather {
+  pointer-events: none;
+  background:
+    linear-gradient(to right, var(--color-night), transparent var(--fx)),
+    linear-gradient(to left, var(--color-night), transparent var(--fx)),
+    linear-gradient(to bottom, var(--color-night), transparent var(--ft)),
+    linear-gradient(to top, var(--color-night), transparent var(--fb));
+  --fx: 9%; --ft: 8%; --fb: 5%;
+}
+@media (orientation: portrait) {
+  .frame-feather { --fx: 14%; --ft: 10%; --fb: 9%; }
+}
+
+.scroll-hint-line { animation: hint-drop 2.2s ease-in-out infinite; }
+@media (prefers-reduced-motion: reduce) {
+  .scroll-hint-line { animation: none; opacity: 0.6; }
+}
+@keyframes hint-drop {
+  0% { transform: scaleY(0); transform-origin: top; opacity: 0; }
+  40% { transform: scaleY(1); transform-origin: top; opacity: 1; }
+  100% { transform: scaleY(1); transform-origin: bottom; opacity: 0; }
+}
+
+/* نوار نوشتهٔ متحرک در بخش تماس */
+.marquee { display: flex; width: max-content; animation: marquee 38s linear infinite; }
+@keyframes marquee { to { transform: translateX(50%); } }
+@media (prefers-reduced-motion: reduce) { .marquee { animation: none; } }
+
+/* هالهٔ گرم نور شمع */
+.candle-glow { background: radial-gradient(60% 55% at 50% 0%, rgb(255 179 92 / .16), transparent 70%); }
+.glass { background: rgb(241 229 208 / .08); border: 1px solid rgb(241 229 208 / .16); backdrop-filter: blur(18px) saturate(1.4); -webkit-backdrop-filter: blur(18px) saturate(1.4); }
