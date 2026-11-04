@@ -1,6 +1,5 @@
 import { useEffect, useRef, useState } from "react";
 import { BRAND, NAV, CTA } from "../../data/site";
-import Logo from "./Logo";
 
 const SHRINK_PX = 160; // با ۱۶۰ پیکسل اسکرول، هدر کامل کوچک می‌شود
 
@@ -12,15 +11,22 @@ export default function Header() {
 
   // کوچک‌شدن هدر مستقیم با اسکرول (--p از ۰ تا ۱)؛ هدر همیشه سرجایش می‌ماند و پس‌زمینه ندارد
   useEffect(() => {
+    let lastColor = "";
     const on = () => {
       root.current?.style.setProperty("--p", Math.min(1, window.scrollY / SHRINK_PX).toFixed(3));
       // آخرین بخشِ دارای data-tone که زیر هدر است تعیین‌کنندهٔ رنگ متن است
-      let t = "light";
+      let t = "light", c = null;
       document.querySelectorAll("[data-tone]").forEach((el) => {
         const r = el.getBoundingClientRect();
-        if (r.top <= 44 && r.bottom > 44) t = el.dataset.tone;
+        if (r.top <= 44 && r.bottom > 44) { t = el.dataset.tone; c = el.dataset.color || c; }
       });
       setTone(t);
+      // زمینهٔ صفحه و رنگ نوار مرورگر (حتی زیر دکمه‌های لمسی گوشی) با بخش فعلی یکی می‌شود
+      if (c && c !== lastColor) {
+        lastColor = c;
+        document.documentElement.style.backgroundColor = c;
+        document.querySelector('meta[name="theme-color"]')?.setAttribute("content", c);
+      }
     };
     on();
     window.addEventListener("scroll", on, { passive: true });
@@ -65,7 +71,7 @@ export default function Header() {
           </div>
 
           <a href="#hero" className="block origin-center" style={{ transform: "scale(calc(1.3 - .3 * var(--p)))" }} aria-label={`${BRAND} — بالای صفحه`}>
-            <Logo kind="fa" height={38} />
+            <span className="block font-serif text-[1.7rem] font-semibold leading-none tracking-[0.24em] ps-[0.24em]">KIKA</span>
           </a>
 
           <a href={CTA.href} className="hidden justify-self-end rounded-full border border-current/50 px-6 py-2.5 text-[0.88rem] font-bold transition-colors duration-300 hover:bg-current/10 sm:inline-flex">
@@ -74,7 +80,7 @@ export default function Header() {
         </div>
       </header>
 
-      <div id="mobile-menu" className={`fixed inset-0 z-30 bg-dusk/97 text-cream backdrop-blur-2xl transition-opacity duration-500 md:hidden ${open ? "opacity-100" : "pointer-events-none opacity-0"}`} aria-hidden={!open} inert={!open}>
+      <div id="mobile-menu" className={`fixed inset-0 z-30 bg-navy/97 text-cream backdrop-blur-2xl transition-opacity duration-500 md:hidden ${open ? "opacity-100" : "pointer-events-none opacity-0"}`} aria-hidden={!open} inert={!open}>
         <nav aria-label="منوی موبایل" className="flex h-full flex-col justify-center gap-1 px-8 pb-10 pt-28">
           {NAV.map((n, i) => (
             <a key={n.id} href={n.href} onClick={() => setOpen(false)} style={{ transitionDelay: open ? `${120 + i * 80}ms` : "0ms" }}
@@ -82,7 +88,7 @@ export default function Header() {
               {n.label}
             </a>
           ))}
-          <a href={CTA.href} onClick={() => setOpen(false)} className="mt-8 w-fit rounded-full bg-cream px-8 py-4 text-lg font-black text-clay">{CTA.label}</a>
+          <a href={CTA.href} onClick={() => setOpen(false)} className="mt-8 w-fit rounded-full bg-cream px-8 py-4 text-lg font-black text-navy">{CTA.label}</a>
         </nav>
       </div>
     </>

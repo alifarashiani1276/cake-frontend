@@ -95,7 +95,7 @@ export function useScrollFrames({ trackRef, wrapRef, canvasRef, onProgress, onLo
     const onResize = () => { applyLayout(); drawn = -1; draw(); onScroll(); };
 
     // ارتفاع مسیر اسکرول از تعداد فریم‌ها می‌آید
-    track.style.height = `calc(200svh + ${FRAME_COUNT * SCROLL_PX_PER_FRAME}px)`;
+    track.style.height = `calc(280svh + ${FRAME_COUNT * SCROLL_PX_PER_FRAME}px)`;
 
     fetch(FOCUS_URL).then((r) => r.json()).then((j) => { focus = j; applyLayout(); }).catch(() => {});
 

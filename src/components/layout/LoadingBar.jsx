@@ -6,7 +6,7 @@ export default function LoadingBar({ barRef, visible }) {
         visible ? "opacity-100" : "opacity-0"
       }`}
     >
-      <div ref={barRef} className="h-full origin-right bg-sage" style={{ transform: "scaleX(0)" }} />
+      <div ref={barRef} className="h-full origin-right bg-saffron" style={{ transform: "scaleX(0)" }} />
     </div>
   );
 }

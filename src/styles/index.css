@@ -2,21 +2,31 @@
 
 /* پالت: سه رنگ نرم و اصلی تصویر مرجع + قهوه‌ای پالت فقط برای متن‌های ثانویه */
 @theme {
-  /* پالت برند کیکا */
-  --color-night: #050403;   /* فقط سیاهی صحنهٔ ویدیو */
-  --color-clay: #7A5636;    /* قهوه‌ای تیره */
-  --color-caramel: #C49A6C; /* کارامل */
-  --color-ember: #C49A6C;   /* همان کارامل؛ برای کلاس‌های قبلی */
-  --color-cream: #F1E5D0;
-  --color-linen: #E1D1BA;
-  --color-sage: #D3CDB1;
-  --color-ink: #3A281A;     /* متن اصلی: قهوه‌ای بسیار تیره (از قهوه‌ای پالت) */
-  --color-dusk: #1D130C;
-  --font-display: "Morabba", "Vazirmatn", system-ui, sans-serif;
+  /* پالت KIKA (طبق قالب برند) */
+  --color-night: #050403;      /* فقط سیاهی صحنهٔ ویدیو */
+  --color-teal: #2C9F9A;       /* فیروزه نیشابوری: رنگ اصلی (برای متن کوچک روی کرم نه!) */
+  --color-teal-dark: #17625E;  /* فیروزه‌ای تیره برای لینک و متن رنگی؛ کنتراست حدود ۶ به ۱ روی کرم */
+  --color-navy: #1F2A44;       /* لاجوردی: متن، هدر و فوتر */
+  --color-rouge: #A74448;      /* روناسی: فقط دکمهٔ خرید */
+  --color-rouge-dark: #8A353A; /* هاور دکمهٔ خرید */
+  --color-brick: #B85F47;      /* آجری: رنگ مکمل */
+  --color-saffron: #E6B85C;    /* زعفرانی: تخفیف و نشان */
+  --color-olive: #7A8A6B;      /* زیتونی: فقط نقطه و آیکون */
+  --color-kahgeli: #EAD7AD;    /* کاهگلی: کارت و سطح */
+  --color-cream: #F6EEDC;      /* کرم سنتی: پس‌زمینه */
+  /* نام‌های قدیمی که در کد استفاده می‌شوند */
+  --color-ink: #1F2A44;
+  --color-ember: #E6B85C;
+  --color-linen: #EAD7AD;
+  --color-dusk: #1F2A44;
+  --color-clay: #B85F47;
+  --color-sage: #E6B85C;
+  --font-serif: "Cormorant Garamond", Georgia, "Times New Roman", serif;
 }
 
 html { scroll-padding-top: 72px; scroll-behavior: smooth; }
-html, body, #root { margin: 0; background: var(--color-cream); }
+html { background: var(--color-night); }
+html, body, #root { margin: 0; }
 body {
   color: var(--color-ink);
   font-family: var(--font-display);
@@ -59,3 +69,9 @@ body {
 /* هالهٔ گرم نور شمع */
 .candle-glow { background: radial-gradient(60% 55% at 50% 0%, rgb(255 179 92 / .16), transparent 70%); }
 .glass { background: rgb(241 229 208 / .08); border: 1px solid rgb(241 229 208 / .16); backdrop-filter: blur(18px) saturate(1.4); -webkit-backdrop-filter: blur(18px) saturate(1.4); }
+
+/* الگوی لوزی‌دار برند */
+.lattice {
+  background-color: var(--color-kahgeli);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='72' height='72' viewBox='0 0 72 72'%3E%3Cpath d='M36 4 68 36 36 68 4 36Z' fill='none' stroke='%237A8A6B' stroke-opacity='.4' stroke-width='1.5'/%3E%3C/svg%3E");
+}

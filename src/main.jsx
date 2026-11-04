@@ -1,4 +1,5 @@
 import { createRoot } from "react-dom/client";
+import "@fontsource/cormorant-garamond/600.css";
 import "@fontsource/vazirmatn/300.css";
 import "@fontsource/vazirmatn/400.css";
 import "@fontsource/vazirmatn/700.css";
