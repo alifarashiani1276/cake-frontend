@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { BRAND, NAV, CTA } from "../../data/site";
+import Logo from "./Logo";
 
 const SHRINK_PX = 160; // با ۱۶۰ پیکسل اسکرول، هدر کامل کوچک می‌شود
 
@@ -71,7 +72,7 @@ export default function Header() {
           </div>
 
           <a href="#hero" className="block origin-center" style={{ transform: "scale(calc(1.3 - .3 * var(--p)))" }} aria-label={`${BRAND} — بالای صفحه`}>
-            <span className="block font-serif text-[1.7rem] font-semibold leading-none tracking-[0.24em] ps-[0.24em]">KIKA</span>
+            <Logo kind="latin" height={34} />
           </a>
 
           <a href={CTA.href} className="hidden justify-self-end rounded-full border border-current/50 px-6 py-2.5 text-[0.88rem] font-bold transition-colors duration-300 hover:bg-current/10 sm:inline-flex">

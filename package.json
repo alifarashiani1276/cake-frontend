@@ -10,7 +10,6 @@
   },
   "dependencies": {
     "@fontsource/cormorant-garamond": "^5.2.0",
-    "@fontsource/vazirmatn": "^5.3.0",
     "react": "^19.3.1",
     "react-dom": "^19.3.1"
   },

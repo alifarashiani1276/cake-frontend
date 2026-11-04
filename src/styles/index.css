@@ -1,5 +1,42 @@
 @import "tailwindcss";
 
+/* فونت پیدا (وب‌فونت woff2، فقط وزن‌های استفاده‌شده) */
+@font-face {
+  font-family: "Peyda";
+  font-weight: 300;
+  font-style: normal;
+  font-display: swap;
+  src: url("../assets/fonts/Peyda-Light.woff2") format("woff2");
+}
+@font-face {
+  font-family: "Peyda";
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+  src: url("../assets/fonts/Peyda-Regular.woff2") format("woff2");
+}
+@font-face {
+  font-family: "Peyda";
+  font-weight: 500;
+  font-style: normal;
+  font-display: swap;
+  src: url("../assets/fonts/Peyda-Medium.woff2") format("woff2");
+}
+@font-face {
+  font-family: "Peyda";
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+  src: url("../assets/fonts/Peyda-Bold.woff2") format("woff2");
+}
+@font-face {
+  font-family: "Peyda";
+  font-weight: 900;
+  font-style: normal;
+  font-display: swap;
+  src: url("../assets/fonts/Peyda-Black.woff2") format("woff2");
+}
+
 /* پالت: سه رنگ نرم و اصلی تصویر مرجع + قهوه‌ای پالت فقط برای متن‌های ثانویه */
 @theme {
   /* پالت KIKA (طبق قالب برند) */
@@ -21,6 +58,8 @@
   --color-dusk: #1F2A44;
   --color-clay: #B85F47;
   --color-sage: #E6B85C;
+  --font-sans: "Peyda", system-ui, sans-serif;
+  --font-display: "Peyda", system-ui, sans-serif;
   --font-serif: "Cormorant Garamond", Georgia, "Times New Roman", serif;
 }
 
@@ -75,3 +114,60 @@ body {
   background-color: var(--color-kahgeli);
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='72' height='72' viewBox='0 0 72 72'%3E%3Cpath d='M36 4 68 36 36 68 4 36Z' fill='none' stroke='%237A8A6B' stroke-opacity='.4' stroke-width='1.5'/%3E%3C/svg%3E");
 }
+
+/* فضای سینمایی بخش کیک‌ها: غبار نور و دانهٔ فیلم */
+.dust {
+  position: absolute;
+  border-radius: 9999px;
+  background: radial-gradient(circle, rgb(255 251 238 / .95), rgb(255 240 200 / 0) 70%);
+  animation: dust-drift var(--d, 14s) ease-in-out infinite alternate;
+}
+@keyframes dust-drift {
+  from { transform: translate3d(0, 0, 0); opacity: .2; }
+  to { transform: translate3d(var(--dx, 20px), var(--dy, -40px), 0); opacity: .75; }
+}
+@media (prefers-reduced-motion: reduce) { .dust { animation: none; opacity: .4; } }
+.film-grain {
+  opacity: .07;
+  mix-blend-mode: multiply;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 .7 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
+/* ---------- ظاهرشدن نرم بخش‌ها با اسکرول (فقط وقتی جاوااسکریپت فعال است) ---------- */
+.js .reveal {
+  opacity: 0;
+  transform: translate3d(0, 36px, 0) scale(.98);
+  filter: blur(8px);
+  transition: opacity 1s ease, transform 1.1s cubic-bezier(.2, .7, .2, 1), filter 1s ease, translate .7s cubic-bezier(.2, .7, .2, 1);
+  transition-delay: var(--rd, 0ms);
+}
+.js .reveal.in { opacity: 1; transform: none; filter: none; }
+@media (prefers-reduced-motion: reduce) {
+  .js .reveal { opacity: 1; transform: none; filter: none; transition: none; }
+}
+
+/* نوار متحرک کلمه‌ها (همیشه ltr تا جهت حرکت در راست‌به‌چپ بههم نریزد) */
+.band { display: flex; width: max-content; animation: band 40s linear infinite; }
+.band:hover { animation-play-state: paused; }
+@keyframes band { to { transform: translateX(-50%); } }
+@media (prefers-reduced-motion: reduce) { .band { animation: none; } }
+
+/* نشان چرخان دور کیک سفارشی */
+.spin-slow { animation: spin 22s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .spin-slow { animation: none; } }
+
+/* دکمهٔ مدرن: لایهٔ رنگی از پایین بالا می‌آید */
+.btn-sweep { position: relative; overflow: hidden; isolation: isolate; }
+.btn-sweep::before {
+  content: ""; position: absolute; inset: 0; z-index: -1;
+  background: var(--sweep, #E6B85C);
+  transform: translateY(101%); border-radius: inherit;
+  transition: transform .5s cubic-bezier(.2, .7, .2, 1);
+}
+.btn-sweep:hover::before { transform: translateY(0); }
+
+/* نمایش افقی با اسکرول‌اسنپ در موبایل */
+.snap-row { scroll-snap-type: x mandatory; scrollbar-width: none; }
+.snap-row::-webkit-scrollbar { display: none; }
+.snap-row > * { scroll-snap-align: center; }

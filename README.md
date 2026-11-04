@@ -21,7 +21,7 @@ npm run preview    # آزمایش نسخهٔ ساخته‌شده
 - `src/components/`, `src/sections/Hero.jsx` : رابط
 
 ## فونت Morabba
-فایل فونت در اختیار نبود؛ فعلاً Vazirmatn جایگزین است. برای استفاده از Morabba فایل `woff2` را در `public/fonts/` بگذارید و در `src/styles/index.css` این را اضافه کنید:
+فونت اصلی سایت اکنون «پیدا» (Peyda) است و از `src/assets/fonts/` بارگذاری می‌شود. برای استفاده از Morabba فایل `woff2` را در `public/fonts/` بگذارید و در `src/styles/index.css` این را اضافه کنید:
 ```css
 @font-face { font-family: "Morabba"; src: url("/fonts/Morabba-Medium.woff2") format("woff2"); font-display: swap; }
 ```
