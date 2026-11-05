@@ -5,9 +5,14 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 // It keeps growing (or shrinking) forever, so the carousel loops with no end.
 const mod = (n, m) => ((n % m) + m) % m
 
-export default function useCarousel(count, { autoplayMs = 4000 } = {}) {
-  const [position, setPosition] = useState(0)
+// onFrame(position) در هر فریم صدا زده می‌شود تا صفحه مستقیم (بدون رندر ریاکت) به‌روز شود؛
+// فقط activeIndex، وقتی عوض شد، state ریاکت است.
+export default function useCarousel(count, { autoplayMs = 4000, onFrame } = {}) {
+  const [activeIndex, setActiveIndex] = useState(0)
   const [paused, setPaused] = useState(false)
+  const onFrameRef = useRef(onFrame)
+  onFrameRef.current = onFrame
+  const activeRef = useRef(0)
 
   const positionRef = useRef(0) // where the cards are right now
   const targetRef = useRef(0) // where the cards are moving to
@@ -23,8 +28,13 @@ export default function useCarousel(count, { autoplayMs = 4000 } = {}) {
       positionRef.current += diff * 0.12
       frameRef.current = requestAnimationFrame(animate)
     }
-    setPosition(positionRef.current)
-  }, [])
+    onFrameRef.current?.(positionRef.current)
+    const idx = mod(Math.round(positionRef.current), count)
+    if (idx !== activeRef.current) {
+      activeRef.current = idx
+      setActiveIndex(idx)
+    }
+  }, [count])
 
   const start = useCallback(() => {
     if (frameRef.current === null) frameRef.current = requestAnimationFrame(animate)
@@ -85,8 +95,8 @@ export default function useCarousel(count, { autoplayMs = 4000 } = {}) {
   }, [paused, autoplayMs, next])
 
   return {
-    position,
-    activeIndex: mod(Math.round(position), count),
+    positionRef,
+    activeIndex,
     next,
     prev,
     goTo,

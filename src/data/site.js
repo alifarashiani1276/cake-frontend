@@ -5,7 +5,7 @@ export const TAGLINE = "طعم اصیل، با حس خوب";
 export const SUB = "PERSIAN SWEETS & BITES";
 
 export const NAV = [
-  { label: "کیک‌ها", href: "#menu", id: "menu" },
+  { label: "فروشگاه‌ها", href: "#menu", id: "menu" },
   { label: "داستان ما", href: "#story", id: "story" },
   { label: "چرا کیکا", href: "#why", id: "why" },
   { label: "تماس", href: "#contact", id: "contact" },
@@ -25,7 +25,7 @@ const ITEMS = [
 ];
 
 export const MENU = {
-  heading: "کیک‌های ما",
+  heading: "فروشگاه‌های ما",
   intro: "هر سفارش را همان روز، با مواد تازه و با دست آماده می‌کنیم.",
   items: ITEMS.map((item) => ({ ...item, key: item.id })), // key فقط برای React است
 };

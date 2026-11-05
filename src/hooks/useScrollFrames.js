@@ -1,7 +1,7 @@
 import { useEffect } from "react";
 import { createFrameStore } from "../lib/frameStore";
 import { computeLayout } from "../lib/layout";
-import { FRAME_COUNT, pickFrameSet, frameUrl, FOCUS_URL, SCROLL_PX_PER_FRAME } from "../data/sequence";
+import { FRAME_COUNT, pickFrameSet, frameUrl, FOCUS_URL, SCROLL_PX_PER_FRAME, TAIL_SVH } from "../data/sequence";
 
 /**
  * منطق انیمیشن، مستقل از رابط کاربری:
@@ -95,7 +95,7 @@ export function useScrollFrames({ trackRef, wrapRef, canvasRef, onProgress, onLo
     const onResize = () => { applyLayout(); drawn = -1; draw(); onScroll(); };
 
     // ارتفاع مسیر اسکرول از تعداد فریم‌ها می‌آید
-    track.style.height = `calc(280svh + ${FRAME_COUNT * SCROLL_PX_PER_FRAME}px)`;
+    track.style.height = `calc(${TAIL_SVH}svh + ${FRAME_COUNT * SCROLL_PX_PER_FRAME}px)`;
 
     fetch(FOCUS_URL).then((r) => r.json()).then((j) => { focus = j; applyLayout(); }).catch(() => {});
 

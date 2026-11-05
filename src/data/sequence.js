@@ -15,3 +15,7 @@ export const frameUrl = (set, i) =>
 export const FOCUS_URL = `${import.meta.env.BASE_URL}frames/focus.json`;
 // طول اسکرول به‌ازای هر فریم (px)
 export const SCROLL_PX_PER_FRAME = 22;
+
+// طول مسیر هیرو بعد از انیمیشن: پردهٔ کرم در CURTAIN_VH صفحه بالا می‌آید و بقیه مکث کوتاه است
+export const TAIL_SVH = 200;
+export const CURTAIN_VH = 1.0;

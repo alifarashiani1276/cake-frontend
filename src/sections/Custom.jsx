@@ -49,7 +49,7 @@ export default function Custom() {
               ثبت سفارش ویژه
               <svg width="18" height="18" viewBox="0 0 20 20" fill="none" className="-scale-x-100" aria-hidden="true"><path d="M4 10h12m0 0-5-5m5 5-5 5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" /></svg>
             </a>
-            <a href="#menu" className="rounded-full border border-navy px-8 py-3.5 text-base font-black transition-colors duration-300 hover:bg-navy hover:text-cream">دیدن کیک‌ها</a>
+            <a href="#menu" className="rounded-full border border-navy px-8 py-3.5 text-base font-black transition-colors duration-300 hover:bg-navy hover:text-cream">دیدن فروشگاه‌ها</a>
           </div>
         </div>
       </div>

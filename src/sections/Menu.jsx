@@ -1,30 +1,34 @@
-import { useEffect, useRef } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef } from "react";
 import { MENU } from "../data/site";
 import useCarousel from "../hooks/useCarousel";
 import useViewportSize from "../hooks/useViewportSize";
+import RollingPin, { PIN_W, PIN_H } from "../components/animation/RollingPin";
+import FlourDust from "../components/animation/FlourDust";
 
 const img = (id, size) => `${import.meta.env.BASE_URL}cards/${id}-${size}.webp`;
 const fa = (n) => n.toLocaleString("fa-IR");
 const N = MENU.items.length;
+const BASE = import.meta.env.BASE_URL;
+const TRACK_SVH = 200; // طول مسیر اسکرول بخش (۱۰۰ از آن خودِ صفحه است)
+const clamp01 = (v) => Math.min(1, Math.max(0, v));
+const easeInOut = (t) => (t < 0.5 ? 4 * t ** 3 : 1 - (-2 * t + 2) ** 3 / 2);
 
-// دایرهٔ چرخش بزرگ‌تر و عمق بیشتر:
-// STEP_DEG زاویهٔ بین دو کارت کناری روی دایره؛ RADIUS_K شعاع دایره بر حسب عرض کارت (قبلاً حدود ۱٫۴)؛
-// DEPTH_K عقب‌رفتن اضافهٔ هر کارت کناری بر حسب عرض کارت؛ PERSPECTIVE هرچه کمتر، عمق دیدنی‌تر.
-const STEP_DEG = 22;
-const RADIUS_K = 3.1;
-const DEPTH_K = 0.5;
-const PERSPECTIVE = 1000;
+// همهٔ کارت‌ها روی یک دایرهٔ منظم می‌چرخند (یک محور، یک شعاع، همه هم‌سطح):
+// STEP_DEG زاویهٔ بین دو کارت کناری روی دایره؛ RADIUS_K شعاع دایره بر حسب عرض کارت؛
+// PERSPECTIVE هرچه کمتر، عمق دیدنی‌تر.
+const STEP_DEG = 24;
+const TILT_DEG = 0; // چرخش خود کارت‌ها؛ ۰ یعنی همه صاف و در یک ردیف افقی (برای کمی کج شدن، مثلاً ۸ بگذار)
+const RADIUS_K = 2.8;
+const PERSPECTIVE = 1100;
 
-// ذره‌های غبار نور پشت کارت‌ها (جای هرکدام با درصد صفحه)
-const DUST = [
-  { x: "8%", y: "62%", s: 10, d: "16s", dx: "30px", dy: "-70px" },
-  { x: "17%", y: "30%", s: 7, d: "12s", dx: "-20px", dy: "-40px" },
-  { x: "27%", y: "74%", s: 14, d: "19s", dx: "40px", dy: "-90px" },
-  { x: "41%", y: "20%", s: 6, d: "13s", dx: "24px", dy: "-30px" },
-  { x: "58%", y: "16%", s: 9, d: "17s", dx: "-30px", dy: "-50px" },
-  { x: "72%", y: "70%", s: 12, d: "21s", dx: "-36px", dy: "-80px" },
-  { x: "84%", y: "36%", s: 8, d: "15s", dx: "20px", dy: "-60px" },
-  { x: "92%", y: "66%", s: 11, d: "18s", dx: "-26px", dy: "-70px" },
+// ستاره‌های سوسوزنِ دور کارت وسط: جا (٪ از کارت)، اندازه (px)، تأخیر و مدت (ثانیه)
+const SPARKS = [
+  { x: "9%", y: "-1%", s: 13, d: 0, t: 2.6 },
+  { x: "93%", y: "5%", s: 10, d: 0.9, t: 2.2 },
+  { x: "101%", y: "42%", s: 14, d: 1.7, t: 3 },
+  { x: "96%", y: "97%", s: 11, d: 0.4, t: 2.4 },
+  { x: "6%", y: "92%", s: 12, d: 1.3, t: 2.8 },
+  { x: "-1%", y: "38%", s: 9, d: 2.1, t: 2.3 },
 ];
 
 // فاصلهٔ کارت از وسط: ۰ = وسط، ۱ = یک جا سمت راست، -۱ = یک جا سمت چپ (حلقه‌ای، بدون پایان)
@@ -34,24 +38,24 @@ function getOffset(index, position) {
   return offset;
 }
 
-// جای کارت روی یک قوس سه‌بعدی. کارت‌های کناری عقب‌تر می‌روند، کج می‌شوند،
-// کمی تیره می‌شوند و محو (کم‌عمق‌نمایی لنز) و کم‌رنگ می‌شوند.
-function getCardStyle(offset, cardW) {
+// جای کارت روی یک قوس سه‌بعدی. فقط transform و opacity عوض می‌شوند (کارت روی GPU می‌ماند)؛
+// بلور و filter در هر فریم حذف شد چون در موبایل خیلی سنگین بود. تیرگی عمق با یک لایهٔ جدا و فقط opacity ساخته می‌شود.
+// near = موبایل: کارت‌های دورتر که بیرون صفحه‌اند اصلاً کشیده نمی‌شوند.
+function getCardStyle(offset, cardW, near) {
   const radians = (offset * STEP_DEG * Math.PI) / 180;
   const radius = cardW * RADIUS_K;
   const distance = Math.abs(offset);
   const x = Math.sin(radians) * radius;
-  // عمق = افتادن روی قوس دایره + عقب‌رفتن اضافه (با فاصله از وسط بیشتر می‌شود)
-  const z = (Math.cos(radians) - 1) * radius - Math.min(distance, 3) * cardW * DEPTH_K;
-  const opacity = Math.max(0, Math.min(1, 1 - (distance - 2.4) / 0.7)); // تا فاصلهٔ ۲٫۴ کامل دیده می‌شود و تا ۳٫۱ محو می‌شود
-  const brightness = 1 - 0.6 * Math.min(1, distance / 3);
-  const blur = Math.min(5, Math.max(0, (distance - 0.5) * 1.8)); // کارت وسط شفاف، پشتی‌ها نرم‌تر
-  const lift = distance * 22; // کارت‌های پشتی بالاتر می‌روند تا عمق بیشتر حس شود
+  // عمق = فقط افتادن روی قوس دایره؛ کارت‌ها نه بالا می‌روند و نه اضافه عقب می‌روند
+  const z = (Math.cos(radians) - 1) * radius;
+  const fadeFrom = near ? 1.1 : 2.4;
+  const fadeLen = near ? 0.8 : 0.7;
+  const opacity = Math.max(0, Math.min(1, 1 - (distance - fadeFrom) / fadeLen));
   return {
-    transform: `translate(-50%,-50%) translate3d(${x.toFixed(1)}px,${-lift.toFixed(1)}px,${z.toFixed(1)}px) rotateY(${-offset * STEP_DEG}deg)`,
+    transform: `translate(-50%,-50%) translate3d(${x.toFixed(1)}px,0,${z.toFixed(1)}px) rotateY(${-offset * TILT_DEG}deg)`,
     opacity,
     visibility: opacity === 0 ? "hidden" : "visible",
-    filter: `brightness(${brightness.toFixed(3)}) blur(${blur.toFixed(2)}px)`,
+    dim: 0.45 * Math.min(1, distance / 2.5),
     zIndex: Math.round(100 - distance * 10),
   };
 }
@@ -61,15 +65,112 @@ function getCardStyle(offset, cardW) {
 // کارت‌ها را با درگ، اسکرول افقی تاچ‌پد/ماوس، کلیک روی کارت کناری، نقطه‌ها یا کلیدهای ← و → بچرخانید.
 export default function Menu() {
   const { w, h } = useViewportSize();
-  const { position, activeIndex, next, prev, goTo, dragBy, release } = useCarousel(N, { autoplayMs: 0 });
+  const cardsRef = useRef([]); // div بیرونی هر کارت
+  const dimsRef = useRef([]); // لایهٔ تیرگی هر کارت
+  const glowsRef = useRef([]); // لبهٔ درخشان طلایی هر کارت (فقط کارت وسط کامل روشن است)
+  const geo = useRef({ cardW: 300, near: false });
+
+  // موقعیت کارت‌ها مستقیم روی DOM نوشته می‌شود؛ ریاکت در هر فریم دوباره رندر نمی‌شود
+  const apply = useCallback((position) => {
+    const { cardW, near } = geo.current;
+    for (let i = 0; i < N; i++) {
+      const el = cardsRef.current[i];
+      if (!el) continue;
+      const offset = getOffset(i, position);
+      const { dim, ...st } = getCardStyle(offset, cardW, near);
+      el.style.transform = st.transform;
+      el.style.opacity = st.opacity;
+      el.style.visibility = st.visibility;
+      el.style.zIndex = st.zIndex;
+      if (dimsRef.current[i]) dimsRef.current[i].style.opacity = dim.toFixed(3);
+      if (glowsRef.current[i]) glowsRef.current[i].style.opacity = Math.max(0, 1 - Math.abs(offset) * 0.8).toFixed(3);
+    }
+  }, []);
+
+  const { positionRef, activeIndex, next, prev, goTo, dragBy, release } = useCarousel(N, { autoplayMs: 0, onFrame: apply });
 
   // اندازهٔ کارت و فاصلهٔ کارت‌ها
-  const cardH = Math.min(h * 0.66, 620);
-  const cardW = Math.min(w * (w < 640 ? 0.62 : 0.7), 440, cardH * 0.78); // کارت همیشه عمودی می‌ماند (مثل عکس‌ها)
+  const cardH = Math.min(h * 0.6, 580);
+  const cardW = Math.min(w * (w < 640 ? 0.66 : 0.7), 440, cardH * 0.78); // کارت همیشه عمودی می‌ماند (مثل عکس‌ها)
   const spacing = cardW * Math.sin((STEP_DEG * Math.PI) / 180) * RADIUS_K; // فاصلهٔ افقی دو کارت کناری روی صفحه (برای سرعت درگ)
-  const compact = cardH < 480; // روی صفحه‌های کم‌ارتفاع توضیح کارت حذف می‌شود تا کیک پوشیده نشود
+    geo.current = { cardW, near: w < 640 };
+  // با اولین رندر و هر تغییر اندازه، قبل از نقاشی صفحه جای کارت‌ها نوشته می‌شود
+  useLayoutEffect(() => { apply(positionRef.current); }, [apply, positionRef, cardW, cardH, w]);
 
+  const trackRef = useRef(null);
+  const sceneRef = useRef(null);
+  const bgRef = useRef(null);
+  const sharpRef = useRef(null);
+  const softRef = useRef(null);
+  const vigRef = useRef(null);
+  const uiRef = useRef(null);
   const stageRef = useRef(null);
+  const pinDrawRef = useRef(null);
+  const flourRef = useRef(null);
+  const lastTopRef = useRef(null);
+
+  // اسکرول مرحله‌ای: p از ۰ تا ۱ در طول بخش.
+  // ۰ تا ۰٫۳: عکس از پایین می‌آید؛ ۰٫۱ تا ۰٫۳۵: کمی تار می‌شود؛ ۰٫۱۲ تا ۰٫۴۲: کارت‌ها ظاهر می‌شوند (بدون صفحهٔ خالی).
+  // فقط style عنصرها نوشته می‌شود (بدون رندر ریاکت).
+  useEffect(() => {
+    let raf = 0;
+    const update = () => {
+      raf = 0;
+      const r = trackRef.current.getBoundingClientRect();
+      const vh = window.innerHeight;
+      const p = clamp01(-r.top / Math.max(1, r.height - vh));
+      const a = easeInOut(clamp01(p / 0.25));
+      const b = clamp01((p - 0.12) / 0.25);
+      const c = easeInOut(clamp01((p - 0.2) / 0.28));
+
+      // صفحهٔ کرم مثل یک ورقهٔ خمیر با گوشهٔ گرد از پایین بالا می‌آید و وردنه روی لبهٔ آن قل می‌خورد.
+      // وقتی ورقه کامل بالا آمد، با اسکرول بعدی عکس فروشگاه از پایین می‌آید.
+      const rad = (48 * clamp01(r.top / (vh * 0.35))).toFixed(1);
+      sceneRef.current.style.borderRadius = `${rad}px ${rad}px 0 0`;
+      // وردنه با حرکت لبه می‌چرخد: مسافت طی‌شده ÷ شعاع وردنه (حدود ۶۵ پیکسل) = زاویه
+      pinDrawRef.current?.(-r.top / 65);
+
+      // آرد: هرچه وردنه سریع‌تر قل بخورد، بیشتر از زیر آن می‌ریزد
+      const moved = lastTopRef.current === null ? 0 : Math.abs(lastTopRef.current - r.top);
+      lastTopRef.current = r.top;
+      const pinW = Math.min(window.innerWidth * 0.98, 1250);
+      const pinH = (pinW * PIN_H) / PIN_W;
+      const flourY = (r.top < 0 ? r.top : 0) + pinH * 0.4; // مختصات داخل صحنه
+      if (moved > 0.3 && flourY > 0 && r.top < vh && flourRef.current) {
+        const left = (window.innerWidth - pinW) / 2;
+        const count = Math.min(34, moved * 0.85);
+        const n = Math.floor(count) + (Math.random() < count % 1 ? 1 : 0);
+        flourRef.current(Math.ceil(n * 0.8), left + pinW * 0.26, left + pinW * 0.74, flourY);
+        flourRef.current(Math.floor(n * 0.2), left + pinW * 0.03, left + pinW * 0.97, flourY - pinH * 0.08);
+      }
+
+      const bg = bgRef.current;
+      bg.style.transform = `translate3d(0,${((1 - a) * 100).toFixed(2)}%,0)`;
+      bg.style.borderRadius = `${((1 - a) * 48).toFixed(1)}px ${((1 - a) * 48).toFixed(1)}px 0 0`;
+      bg.style.visibility = a === 0 ? "hidden" : "visible";
+      softRef.current.style.opacity = b.toFixed(3);
+      vigRef.current.style.opacity = b.toFixed(3);
+      sharpRef.current.style.visibility = b >= 1 ? "hidden" : "visible";
+
+      const ui = uiRef.current;
+      ui.style.opacity = c.toFixed(3);
+      ui.style.transform = `translate3d(0,${((1 - c) * 48).toFixed(1)}px,0) scale(${(0.94 + 0.06 * c).toFixed(3)})`;
+      ui.style.visibility = c === 0 ? "hidden" : "visible";
+      ui.style.pointerEvents = c > 0.6 ? "auto" : "none";
+
+      // رنگ متن هدر: روی کرم تیره، روی عکس روشن
+      const dark = p < 0.12;
+      sceneRef.current.dataset.tone = dark ? "dark" : "light";
+      sceneRef.current.dataset.color = dark ? "#F3DDB6" : "#1c2233";
+
+    };
+    const on = () => { if (!raf) raf = requestAnimationFrame(update); };
+    update();
+    window.addEventListener("scroll", on, { passive: true });
+    window.addEventListener("resize", on);
+    return () => { window.removeEventListener("scroll", on); window.removeEventListener("resize", on); if (raf) cancelAnimationFrame(raf); };
+  }, []);
+
   const drag = useRef({ down: false, moved: false, startX: 0, lastX: 0, lastTime: 0, velocity: 0 });
   const activeOnPointerDown = useRef(0);
 
@@ -128,26 +229,31 @@ export default function Menu() {
   };
 
   return (
-    <section data-tone="dark" data-color="#F6EEDC" className="relative z-10 flex h-svh flex-col items-center justify-center overflow-hidden pb-4 pt-20 text-navy" style={{ background: "linear-gradient(to bottom, #F6EEDC 0%, #F3E8CF 45%, #EAD7AD 100%)" }}>
-      {/* فضای پشت کارت‌ها: نور نرم، رنگ‌های محیطی، پرتوهای کم‌رنگ، کف و غبار نور */}
-      <div className="pointer-events-none absolute inset-0" aria-hidden="true">
-        {/* هالهٔ نور پشت کارت وسط */}
-        <div className="absolute inset-0" style={{ background: "radial-gradient(ellipse 55% 50% at 50% 44%, rgb(255 251 238 / .95), rgb(255 246 225 / .45) 45%, transparent 75%)" }} />
-        {/* رنگ‌های محیطی: فیروزه‌ای کم‌رنگ چپ، زعفرانی راست */}
-        <div className="absolute inset-0" style={{ background: "radial-gradient(circle at 14% 32%, rgb(44 159 154 / .10), transparent 42%), radial-gradient(circle at 88% 26%, rgb(230 184 92 / .20), transparent 44%)" }} />
-        {/* پرتوهای نور از بالا */}
-        <div className="absolute inset-x-0 top-0 h-[75%] opacity-70 blur-xl" style={{ background: "conic-gradient(from 180deg at 50% -8%, transparent 148deg, rgb(255 255 255 / .55) 163deg, transparent 172deg, rgb(255 255 255 / .35) 183deg, transparent 194deg, rgb(255 255 255 / .5) 203deg, transparent 214deg)", maskImage: "linear-gradient(to bottom, transparent, black 25%, transparent 95%)", WebkitMaskImage: "linear-gradient(to bottom, transparent, black 25%, transparent 95%)" }} />
-        {/* حوضچهٔ نور روی کف */}
-        <div className="absolute bottom-[8%] left-1/2 h-48 w-[78%] -translate-x-1/2" style={{ background: "radial-gradient(ellipse at center, rgb(255 251 238 / .85), rgb(255 246 225 / .3) 50%, transparent 72%)" }} />
-        {/* غبار نور */}
-        {DUST.map((p, i) => (
-          <span key={i} className="dust" style={{ left: p.x, top: p.y, width: p.s, height: p.s, "--d": p.d, "--dx": p.dx, "--dy": p.dy }} />
-        ))}
-        {/* تیرگی لبه‌ها */}
-        <div className="absolute inset-0" style={{ background: "radial-gradient(ellipse at 50% 46%, transparent 52%, rgb(122 86 54 / .20) 100%)" }} />
-        <div className="film-grain absolute inset-0" />
-      </div>
+    // مسیر اسکرول بلند + صحنهٔ چسبان: با اسکرول، اول عکس واضح از پایین می‌آید، بعد کمی تار و کم‌نور می‌شود و کارت‌ها ظاهر می‌شوند
+    <section ref={trackRef} className="relative z-10 text-navy" style={{ height: `${TRACK_SVH}svh`, marginTop: "-100svh" }}>
+      {/* لنگر منوی «فروشگاه‌ها»: جایی که کارت‌ها کامل دیده می‌شوند */}
+      <span id="menu" aria-hidden="true" className="pointer-events-none absolute inset-x-0" style={{ top: `${(TRACK_SVH - 100) * 0.55}svh`, height: 1 }} />
+      <RollingPin drawRef={pinDrawRef} />
+      <div ref={sceneRef} data-tone="dark" data-color="#F3DDB6" className="sticky top-0 flex h-svh flex-col items-center justify-center overflow-hidden pb-4 pt-16 shadow-[0_-30px_80px_-10px_rgb(31_42_68/.7)]" style={{ backgroundColor: "#FAD199", backgroundImage: `url(${BASE}brand/dough-bg.webp)`, backgroundSize: "cover", backgroundPosition: "center" }}>
+        <FlourDust emitRef={flourRef} />
+        {/* پس‌زمینه: عکس شعبه؛ از پایین مثل کشو بالا می‌آید. دو لایه (واضح و کمی تار) با کراس‌فید جابه‌جا می‌شوند، بدون فیلتر زنده */}
+        <div ref={bgRef} className="pointer-events-none absolute inset-0 overflow-hidden will-change-transform" style={{ transform: "translate3d(0,100%,0)", visibility: "hidden" }} aria-hidden="true">
+          <picture>
+            <source media="(max-width: 640px)" srcSet={`${BASE}brand/bakery-sharp-sm.webp`} />
+            <img ref={sharpRef} src={`${BASE}brand/bakery-sharp-lg.webp`} alt="" loading="eager" decoding="async" draggable="false" className="absolute inset-0 h-full w-full object-cover object-center" />
+          </picture>
+          <picture>
+            <source media="(max-width: 640px)" srcSet={`${BASE}brand/bakery-soft-sm.webp`} />
+            <img ref={softRef} src={`${BASE}brand/bakery-soft-lg.webp`} alt="" loading="lazy" decoding="async" draggable="false" className="absolute inset-0 h-full w-full object-cover object-center" style={{ opacity: 0 }} />
+          </picture>
+          {/* تیرگی لبه‌ها تا کارت‌های شیشه‌ای خوانا بمانند */}
+          <div ref={vigRef} className="absolute inset-0" style={{ opacity: 0, background: "radial-gradient(ellipse at 50% 50%, rgb(10 14 28 / .08) 30%, rgb(10 14 28 / .5) 100%)" }} />
+        </div>
 
+        {/* کارت‌ها و نوار صفحه‌بندی؛ با اسکرول نرم ظاهر می‌شوند */}
+        <div ref={uiRef} className="relative flex w-full flex-col items-center will-change-transform" style={{ opacity: 0, visibility: "hidden", pointerEvents: "none" }}>
+          {/* تیتر کوچک و ساده، چسبیده به کارت‌ها */}
+          <h2 className="m-0 mb-2 text-base font-bold tracking-wide text-cream/90 md:mb-3 md:text-xl">{MENU.heading}</h2>
       {/* dir="ltr": چپ و راست هندسهٔ کارت‌ها در فارسی برعکس نشود؛ متن داخل کارت‌ها همچنان راست‌به‌چپ است */}
       <div
         ref={stageRef}
@@ -163,87 +269,103 @@ export default function Menu() {
         onPointerCancel={onPointerEnd}
         onClickCapture={onClickCapture}
         className="relative w-full cursor-grab touch-pan-y select-none active:cursor-grabbing"
-        style={{ height: cardH + 90, perspective: `${PERSPECTIVE}px`, perspectiveOrigin: "50% 40%" }}
+        style={{ height: cardH + 56, perspective: `${PERSPECTIVE}px`, perspectiveOrigin: "50% 50%" }}
       >
         {/* سایهٔ تماس کارت وسط با کف */}
-        <div className="absolute left-1/2 -translate-x-1/2 rounded-[50%] bg-navy/40 blur-2xl" style={{ top: cardH + 18, width: cardW * 0.95, height: 44 }} aria-hidden="true" />
+        <div className="absolute left-1/2 -translate-x-1/2" style={{ top: cardH + 18, width: cardW * 1.1, height: 56, background: "radial-gradient(ellipse at center, rgb(31 42 68 / .42), transparent 70%)" }} aria-hidden="true" />
 
         <div className="absolute inset-0" style={{ transformStyle: "preserve-3d" }}>
           {MENU.items.map((it, i) => {
-            const offset = getOffset(i, position);
             const isActive = i === activeIndex;
-            const { filter, ...place } = getCardStyle(offset, cardW); // filter: عمق‌نمایی؛ بقیه: جای کارت
+            const offset = (((i - activeIndex) % N) + N) % N; // فقط برای aria و کلیک؛ جای دقیق را apply می‌گذارد
+            const far = Math.min(offset, N - offset) > 1;
             return (
-              <div key={it.key} className="absolute left-1/2 top-1/2 will-change-transform" style={{ width: cardW, height: cardH, ...place }}>
-              {/* سایه جدا از کارت است تا با محو شدن کارت‌های کناری بریده نشود */}
-              <div className="absolute inset-0 rounded-[2rem] shadow-[0_30px_50px_-28px_rgb(31_42_68/.6)]" aria-hidden="true" />
+              <div key={it.key} ref={(el) => (cardsRef.current[i] = el)} className="absolute left-1/2 top-1/2 [backface-visibility:hidden] will-change-transform" style={{ width: cardW, height: cardH }}>
+              {/* سایهٔ نرم زیر شیشه */}
+              <div className="absolute inset-0 rounded-[1.6rem] shadow-[0_18px_30px_-18px_rgb(10_14_28/.7)] md:shadow-[0_34px_55px_-28px_rgb(10_14_28/.75)]" aria-hidden="true" />
+              {/* کارت شیشه‌ای: قاب نیمه‌شفاف با لبهٔ روشن؛ بدون backdrop-filter چون روی موبایل سنگین است */}
               <article
                 dir="rtl"
-                aria-hidden={Math.abs(offset) > 1.5}
+                aria-hidden={far}
                 // کلیک روی کارت کناری فقط آن را به وسط می‌آورد؛ کلیک کیبورد (detail = 0) همیشه کار می‌کند
                 onClickCapture={(e) => {
                   if (e.detail !== 0 && i !== activeOnPointerDown.current) { e.stopPropagation(); e.preventDefault(); goTo(i); }
                 }}
-                className="absolute inset-0 overflow-hidden rounded-[2rem] bg-navy"
-                style={{ filter }}
+                className="absolute inset-0 flex flex-col rounded-[1.6rem] p-2"
+                style={{
+                  background: "linear-gradient(155deg, rgb(255 255 255 / .30), rgb(255 255 255 / .08) 42%, rgb(255 255 255 / .16))",
+                  boxShadow: "inset 0 1px 0 rgb(255 255 255 / .7), inset 0 0 0 1px rgb(255 255 255 / .32)",
+                }}
               >
-                <img
-                  src={img(it.id, "lg")}
-                  srcSet={`${img(it.id, "sm")} 800w, ${img(it.id, "lg")} 1400w`}
-                  sizes="440px"
-                  alt={it.name}
-                  loading={i < 3 ? "eager" : "lazy"}
-                  fetchPriority={i < 3 ? "high" : "auto"}
-                  decoding="async"
-                  className="absolute left-0 w-full object-cover"
-                  // عکس کمی بالاتر از کارت قرار می‌گیرد تا کیک بالای متن دیده شود؛ رنگ‌ها کمی سینمایی می‌شوند
-                  style={{ top: "-16%", height: "116%", objectPosition: it.pos, filter: "saturate(1.1) contrast(1.06)", opacity: 0, transition: "opacity 0.9s ease" }}
-                  // عکس وقتی آماده شد نرم ظاهر می‌شود (فریم‌های هیرو اول بارگذاری می‌شوند)
-                  ref={(el) => { if (el?.complete && el.naturalWidth) el.style.opacity = 1; }}
-                  onLoad={(e) => { e.currentTarget.style.opacity = 1; }}
-                  draggable="false"
-                />
-                {/* گرادیان پایین کارت برای خوانایی متن */}
-                <div className="absolute inset-0 bg-gradient-to-t from-navy/90 via-navy/30 to-transparent" aria-hidden="true" />
-                {/* تیرگی لبه‌های کارت، مثل لنز دوربین */}
-                <div className="absolute inset-0" style={{ background: "radial-gradient(ellipse at 50% 40%, transparent 55%, rgb(10 14 28 / .35) 100%)" }} aria-hidden="true" />
-                {/* بازتاب نور روی سطح کارت؛ با چرخش کارت جابه‌جا می‌شود */}
-                <div className="absolute inset-0" style={{ background: `linear-gradient(${105 + offset * 28}deg, rgb(255 255 255 / .22) 0%, rgb(255 255 255 / .05) 28%, transparent 45%)` }} aria-hidden="true" />
-                {/* لبهٔ شیشه‌ای */}
-                <div className="absolute inset-0 rounded-[2rem] ring-1 ring-inset ring-white/25" aria-hidden="true" />
-                {it.discount && (
-                  <span className="absolute start-4 top-4 rounded-full bg-saffron px-3.5 py-1 text-sm font-black text-navy shadow-lg">{fa(it.discount)}٪ تخفیف</span>
-                )}
-                <div className="absolute inset-x-0 bottom-0 p-5 text-cream md:p-6">
-                  <h3 className="m-0 text-[clamp(1.35rem,2.6vw,1.8rem)] font-black leading-tight [text-shadow:0_2px_14px_rgb(0_0_0/.45)]">{it.name}</h3>
-                  {!compact && <p className="mt-1.5 text-sm leading-7 text-cream/85">{it.note}</p>}
-                  {!compact && <p className="mt-1 text-xs text-cream/75">{it.stock}</p>}
-                  <p className="m-0 mt-2.5 flex items-baseline gap-2.5">
-                    {it.oldPrice && <s className="text-sm text-cream/65">{fa(it.oldPrice)}</s>}
-                    <span className="text-xl font-black">{fa(it.price)} <span className="text-sm font-bold">تومان</span></span>
-                  </p>
-                  <button type="button" tabIndex={isActive ? 0 : -1} className="mt-3 w-full rounded-full bg-rouge py-3 text-base font-black text-white shadow-[0_10px_24px_-8px_rgb(167_68_72/.8)] transition-colors duration-300 hover:bg-rouge-dark">افزودن به سبد</button>
+                {/* پنجرهٔ عکس داخل شیشه */}
+                <div className="relative min-h-0 flex-1 overflow-hidden rounded-[1.2rem] bg-navy">
+                  <img
+                    src={img(it.id, "sm")}
+                    srcSet={`${img(it.id, "sm")} 800w, ${img(it.id, "lg")} 1400w`}
+                    sizes="480px"
+                    alt={it.name}
+                    loading={i < 3 ? "eager" : "lazy"}
+                    fetchPriority={i < 3 ? "high" : "auto"}
+                    decoding="async"
+                    className="absolute left-0 w-full object-cover"
+                    // عکس کمی بالاتر قرار می‌گیرد تا کیک بالای متن دیده شود
+                    style={{ top: "-6%", height: "106%", objectPosition: it.pos, opacity: 0, transition: "opacity 0.9s ease" }}
+                    ref={(el) => { if (el?.complete && el.naturalWidth) el.style.opacity = 1; }}
+                    onLoad={(e) => { e.currentTarget.style.opacity = 1; }}
+                    draggable="false"
+                  />
+                  {/* گرادیان پایین برای خوانایی متن + بازتاب نور شیشه */}
+                  <div className="absolute inset-0 bg-gradient-to-t from-navy/70 via-transparent to-transparent" aria-hidden="true" />
+                  <div className="absolute inset-0" style={{ background: "linear-gradient(105deg, rgb(255 255 255 / .2) 0%, rgb(255 255 255 / .04) 30%, transparent 46%)" }} aria-hidden="true" />
+                  <div className="absolute inset-0 rounded-[1.2rem] ring-1 ring-inset ring-white/25" aria-hidden="true" />
+                  {it.discount && (
+                    <span className="absolute start-3 top-3 rounded-full bg-saffron px-2.5 py-0.5 text-xs font-black text-navy">{fa(it.discount)}٪ تخفیف</span>
+                  )}
+                  <div className="absolute inset-x-2.5 bottom-2.5 flex items-center justify-between gap-3 rounded-2xl border border-white/20 bg-[#0a0e1c]/50 py-2 pe-2 ps-4 text-cream">
+                    <div className="min-w-0">
+                      <h3 className="m-0 truncate text-base font-black leading-tight md:text-lg">{it.name}</h3>
+                      <p className="m-0 mt-1 flex items-baseline gap-2">
+                        {it.oldPrice && <s className="text-xs text-cream/60">{fa(it.oldPrice)}</s>}
+                        <span className="text-sm font-bold text-saffron">{fa(it.price)} <span className="text-xs font-medium text-cream/80">تومان</span></span>
+                      </p>
+                    </div>
+                    <button type="button" tabIndex={isActive ? 0 : -1} aria-label={`افزودن ${it.name} به سبد`} className="grid size-9 shrink-0 place-items-center rounded-full bg-rouge text-white shadow-[0_8px_18px_-6px_rgb(167_68_72/.9)] transition-colors duration-300 hover:bg-rouge-dark">
+                      <svg width="18" height="18" viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="M10 4v12M4 10h12" stroke="currentColor" strokeWidth="2" strokeLinecap="round" /></svg>
+                    </button>
+                  </div>
                 </div>
+
+                {/* لبهٔ درخشان طلایی؛ فقط کارت وسط کامل روشن است (لایهٔ جدا با opacity).
+                    کارت وسط زنده است: هاله می‌تپد، نور طلایی دور کارت می‌چرخد و ستاره‌های ریز سوسو می‌زنند؛ کارت‌های کناری متوقف‌اند */}
+                <div ref={(el) => (glowsRef.current[i] = el)} data-live={isActive ? "1" : "0"} className="card-glow pointer-events-none absolute inset-0 rounded-[1.6rem] will-change-[opacity]" style={{ opacity: 0, boxShadow: "0 0 0 1.5px rgb(255 226 165 / .95), inset 0 0 22px rgb(255 226 165 / .4)" }} aria-hidden="true">
+                  {!far && (
+                    <>
+                      <span className="card-glow__halo" />
+                      <span className="card-glow__bloom" />
+                      <span className="card-glow__ring" />
+                      {SPARKS.map((sp, k) => (
+                        <span key={k} className="card-glow__spark" style={{ left: sp.x, top: sp.y, "--s": `${sp.s}px`, animationDelay: `${sp.d}s`, animationDuration: `${sp.t}s` }} />
+                      ))}
+                    </>
+                  )}
+                </div>
+                {/* تیرگی عمق: لایهٔ جدا که فقط opacityش عوض می‌شود */}
+                <div ref={(el) => (dimsRef.current[i] = el)} className="pointer-events-none absolute inset-0 rounded-[1.6rem] bg-[#0a0e1c] will-change-[opacity]" style={{ opacity: 0 }} aria-hidden="true" />
               </article>
               </div>
             );
           })}
         </div>
       </div>
-
-      {/* نقطه‌ها: با کلیک روی هرکدام، همان کارت می‌آید وسط */}
-      <div dir="ltr" className="relative mt-2 flex items-center justify-center gap-1">
+      {/* نقطه‌های ساده؛ نقطهٔ فعال کشیده‌تر و سفید */}
+      <div dir="ltr" className="relative mt-1 flex items-center gap-1">
         {MENU.items.map((it, i) => (
-          <button
-            key={it.key}
-            type="button"
-            onClick={() => goTo(i)}
-            aria-label={`${fa(i + 1)} از ${fa(N)}`}
-            className="group flex h-6 items-center px-0.5"
-          >
-            <span className={`block h-1.5 rounded-full transition-all duration-500 ${i === activeIndex ? "w-8 bg-navy/80" : "w-1.5 bg-navy/25 group-hover:bg-navy/50"}`} />
+          <button key={it.key} type="button" onClick={() => goTo(i)} aria-label={`${fa(i + 1)} از ${fa(N)}`} className="group flex h-6 items-center px-1">
+            <span className={`block h-1.5 rounded-full transition-all duration-500 ${i === activeIndex ? "w-5 bg-white" : "w-1.5 bg-white/40 group-hover:bg-white/80"}`} />
           </button>
         ))}
+      </div>
+        </div>
       </div>
     </section>
   );
