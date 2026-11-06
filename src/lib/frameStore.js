@@ -1,30 +1,49 @@
 // مدیریت فریم‌ها: همهٔ فایل‌ها (فشرده) بارگذاری می‌شوند، اما فقط تعدادی از آن‌ها
 // هم‌زمان به ImageBitmap رمزگشایی می‌شوند تا حافظه (به‌خصوص روی موبایل) پر نشود.
-const CONCURRENCY = 6;
+// رمزگشایی‌ها در صف‌اند و حداکثر MAX_DECODE تا هم‌زمان اجرا می‌شود (پیش‌تر تا ۲۴ تا هم‌زمان بود
+// و در اسکرول سریع، موبایل را قفل می‌کرد).
+const MAX_DECODE = 2;
 
 // window: فریم‌های اطراف که همیشه آماده‌اند، keep: فاصلهٔ نگه‌داری، sparse: هر چند فریم یک‌بار برای پرش‌های سریع
-export function createFrameStore({ count, urlOf, onProgress, window: WINDOW = 8, keep: KEEP = 10, sparse: SPARSE = 24 }) {
+export function createFrameStore({ count, urlOf, onProgress, concurrency = 6, window: WINDOW = 8, keep: KEEP = 10, sparse: SPARSE = 24 }) {
   const blobs = new Array(count).fill(null);
   const bitmaps = new Map();
   const pending = new Set();
+  const forced = []; // فریم‌های پراکنده که باید حتماً رمزگشایی شوند (اولویت اول)
+  let wantedList = []; // فریم‌های اطراف جای فعلی، مرتب از نزدیک به دور
+  let active = 0;
   let loaded = 0;
   let disposed = false;
   const listeners = new Set();
 
   const notify = () => listeners.forEach((fn) => fn());
+  const isSparse = (i) => i % SPARSE === 0 || i === count - 1;
 
-  async function decode(i) {
-    if (disposed || bitmaps.has(i) || pending.has(i) || !blobs[i]) return;
+  async function decodeOne(i) {
     pending.add(i);
+    active++;
     try {
       const bmp = await createImageBitmap(blobs[i]);
-      if (disposed) return bmp.close();
+      if (disposed) { bmp.close(); return; }
       bitmaps.set(i, bmp);
       notify();
     } catch (e) {
       console.warn("decode failed", i, e);
     } finally {
       pending.delete(i);
+      active--;
+      pump();
+    }
+  }
+
+  // تا وقتی ظرفیت هست، نزدیک‌ترین فریمِ دانلودشده‌ای که هنوز رمزگشایی نشده شروع می‌شود
+  function pump() {
+    while (!disposed && active < MAX_DECODE) {
+      const ok = (k) => blobs[k] && !bitmaps.has(k) && !pending.has(k);
+      let i = forced.find(ok);
+      if (i === undefined) i = wantedList.find(ok);
+      if (i === undefined) return;
+      decodeOne(i);
     }
   }
 
@@ -51,7 +70,8 @@ export function createFrameStore({ count, urlOf, onProgress, window: WINDOW = 8,
           const res = await fetch(urlOf(i));
           if (!res.ok) throw new Error(`HTTP ${res.status}`);
           blobs[i] = await res.blob();
-          if (i % SPARSE === 0 || i === 0 || i === count - 1) await decode(i);
+          if (isSparse(i)) forced.push(i);
+          pump();
         } catch (e) {
           store.error = e;
         }
@@ -60,7 +80,7 @@ export function createFrameStore({ count, urlOf, onProgress, window: WINDOW = 8,
         notify();
       }
     }
-    await Promise.all(Array.from({ length: CONCURRENCY }, worker));
+    await Promise.all(Array.from({ length: concurrency }, worker));
   }
 
   // نزدیک‌ترین فریم آماده به فریم موردنظر (برای رسم بدون پرش)
@@ -75,19 +95,24 @@ export function createFrameStore({ count, urlOf, onProgress, window: WINDOW = 8,
     return null;
   }
 
-  // اطراف فریم فعلی را رمزگشایی و بقیه را آزاد می‌کند.
+  // اطراف فریم فعلی را آماده و بقیه را آزاد می‌کند.
   // جهت اسکرول مهم است: جلوتر از فریم فعلی دو برابر بیشتر آماده می‌شود و از نزدیک‌ترین فریم شروع می‌کند.
+  // اگر جای فریم و جهت عوض نشده باشد کاری نمی‌کند (این تابع در هر کادر صدا زده می‌شود).
+  let lastI = -1, lastDir = 0;
   function focus(i, dir = 1) {
+    if (i === lastI && dir === lastDir) return;
+    lastI = i; lastDir = dir;
     const fwd = dir >= 0 ? WINDOW * 2 : WINDOW;
     const back = dir >= 0 ? WINDOW : WINDOW * 2;
     const wanted = [];
     for (let k = i - back; k <= i + fwd; k++) if (k >= 0 && k < count) wanted.push(k);
     wanted.sort((a, b) => Math.abs(a - i) - Math.abs(b - i));
-    wanted.forEach(decode);
+    wantedList = wanted;
     for (const [k, bmp] of bitmaps) {
       const near = k >= i - back - 4 && k <= i + fwd + 4;
-      if (!near && k % SPARSE !== 0 && k !== count - 1) { bmp.close(); bitmaps.delete(k); }
+      if (!near && !isSparse(k)) { bmp.close(); bitmaps.delete(k); }
     }
+    pump();
   }
 
   const store = {

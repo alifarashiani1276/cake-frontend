@@ -4,6 +4,7 @@ import useCarousel from "../hooks/useCarousel";
 import useViewportSize from "../hooks/useViewportSize";
 import RollingPin, { PIN_W, PIN_H } from "../components/animation/RollingPin";
 import FlourDust from "../components/animation/FlourDust";
+import { subscribeScroll } from "../lib/scrollBus";
 
 const img = (id, size) => `${import.meta.env.BASE_URL}cards/${id}-${size}.webp`;
 const fa = (n) => n.toLocaleString("fa-IR");
@@ -113,36 +114,42 @@ export default function Menu() {
   // ۰ تا ۰٫۳: عکس از پایین می‌آید؛ ۰٫۱ تا ۰٫۳۵: کمی تار می‌شود؛ ۰٫۱۲ تا ۰٫۴۲: کارت‌ها ظاهر می‌شوند (بدون صفحهٔ خالی).
   // فقط style عنصرها نوشته می‌شود (بدون رندر ریاکت).
   useEffect(() => {
-    let raf = 0;
-    const update = () => {
-      raf = 0;
+    // خواندن و نوشتن جدا (scrollBus): یک بار چیدمان در هر فریم
+    const read = () => {
       const r = trackRef.current.getBoundingClientRect();
-      const vh = window.innerHeight;
-      const p = clamp01(-r.top / Math.max(1, r.height - vh));
+      return { top: r.top, height: r.height, vh: window.innerHeight };
+    };
+    const write = ({ top, height, vh }) => {
+      const p = clamp01(-top / Math.max(1, height - vh));
       const a = easeInOut(clamp01(p / 0.25));
       const b = clamp01((p - 0.12) / 0.25);
       const c = easeInOut(clamp01((p - 0.2) / 0.28));
 
       // صفحهٔ کرم مثل یک ورقهٔ خمیر با گوشهٔ گرد از پایین بالا می‌آید و وردنه روی لبهٔ آن قل می‌خورد.
       // وقتی ورقه کامل بالا آمد، با اسکرول بعدی عکس فروشگاه از پایین می‌آید.
-      const rad = (48 * clamp01(r.top / (vh * 0.35))).toFixed(1);
+      const rad = (48 * clamp01(top / (vh * 0.35))).toFixed(1);
       sceneRef.current.style.borderRadius = `${rad}px ${rad}px 0 0`;
-      // وردنه با حرکت لبه می‌چرخد: مسافت طی‌شده ÷ شعاع وردنه (حدود ۶۵ پیکسل) = زاویه
-      pinDrawRef.current?.(-r.top / 65);
 
-      // آرد: هرچه وردنه سریع‌تر قل بخورد، بیشتر از زیر آن می‌ریزد
-      const moved = lastTopRef.current === null ? 0 : Math.abs(lastTopRef.current - r.top);
-      lastTopRef.current = r.top;
       const pinW = Math.min(window.innerWidth * 0.98, 1250);
       const pinH = (pinW * PIN_H) / PIN_W;
-      const flourY = (r.top < 0 ? r.top : 0) + pinH * 0.4; // مختصات داخل صحنه
-      if (moved > 0.3 && flourY > 0 && r.top < vh && flourRef.current) {
-        const left = (window.innerWidth - pinW) / 2;
-        const count = Math.min(34, moved * 0.85);
-        const n = Math.floor(count) + (Math.random() < count % 1 ? 1 : 0);
-        flourRef.current(Math.ceil(n * 0.8), left + pinW * 0.26, left + pinW * 0.74, flourY);
-        flourRef.current(Math.floor(n * 0.2), left + pinW * 0.03, left + pinW * 0.97, flourY - pinH * 0.08);
+      // وردنه و آرد فقط وقتی وردنه روی صفحه است محاسبه می‌شوند (پیش‌تر در کل صفحه با هر اسکرول اجرا می‌شد)
+      const pinVisible = top > -pinH && top < vh + pinH;
+      if (pinVisible) {
+        // وردنه با حرکت لبه می‌چرخد: مسافت طی‌شده ÷ شعاع وردنه (حدود ۶۵ پیکسل) = زاویه
+        pinDrawRef.current?.(-top / 65);
+
+        // آرد: هرچه وردنه سریع‌تر قل بخورد، بیشتر از زیر آن می‌ریزد
+        const moved = lastTopRef.current === null ? 0 : Math.abs(lastTopRef.current - top);
+        const flourY = (top < 0 ? top : 0) + pinH * 0.4; // مختصات داخل صحنه
+        if (moved > 0.3 && flourY > 0 && top < vh && flourRef.current) {
+          const left = (window.innerWidth - pinW) / 2;
+          const count = Math.min(34, moved * 0.85);
+          const n = Math.floor(count) + (Math.random() < count % 1 ? 1 : 0);
+          flourRef.current(Math.ceil(n * 0.8), left + pinW * 0.26, left + pinW * 0.74, flourY);
+          flourRef.current(Math.floor(n * 0.2), left + pinW * 0.03, left + pinW * 0.97, flourY - pinH * 0.08);
+        }
       }
+      lastTopRef.current = top;
 
       const bg = bgRef.current;
       bg.style.transform = `translate3d(0,${((1 - a) * 100).toFixed(2)}%,0)`;
@@ -162,13 +169,8 @@ export default function Menu() {
       const dark = p < 0.12;
       sceneRef.current.dataset.tone = dark ? "dark" : "light";
       sceneRef.current.dataset.color = dark ? "#F3DDB6" : "#1c2233";
-
     };
-    const on = () => { if (!raf) raf = requestAnimationFrame(update); };
-    update();
-    window.addEventListener("scroll", on, { passive: true });
-    window.addEventListener("resize", on);
-    return () => { window.removeEventListener("scroll", on); window.removeEventListener("resize", on); if (raf) cancelAnimationFrame(raf); };
+    return subscribeScroll({ read, write });
   }, []);
 
   const drag = useRef({ down: false, moved: false, startX: 0, lastX: 0, lastTime: 0, velocity: 0 });

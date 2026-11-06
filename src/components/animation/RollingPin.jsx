@@ -9,7 +9,6 @@ import { useEffect, useRef } from "react";
 const BASE = import.meta.env.BASE_URL;
 export const PIN_W = 2152; // اندازهٔ عکس برش‌خوردهٔ وردنه
 export const PIN_H = 272;
-const SCALE = 0.7; // بوم چرخان کمی کوچک‌تر از عکس است تا سبک بماند
 
 function loadImage(src) {
   return new Promise((resolve, reject) => {
@@ -24,9 +23,15 @@ export default function RollingPin({ pinRef, drawRef }) {
   const canvasRef = useRef(null);
 
   useEffect(() => {
+    // روی موبایل بوم چرخان کوچک‌تر است (تعداد پیکسل‌هایی که هر فریم محاسبه می‌شود حدود ۳ برابر کمتر)
+    const mobile = window.innerWidth < 768;
+    const SCALE = mobile ? 0.42 : 0.7;
+    const MIN_STEP = mobile ? 0.03 : 0.012; // کمترین تغییر زاویه‌ای که ارزش رسم دوباره دارد (رادیان)
     const CW = Math.round(PIN_W * SCALE);
     const CH = Math.round(PIN_H * SCALE);
     const canvas = canvasRef.current;
+    canvas.width = CW;
+    canvas.height = CH;
     const ctx = canvas.getContext("2d");
     let alive = true;
     let theta = 0;
@@ -112,7 +117,7 @@ export default function RollingPin({ pinRef, drawRef }) {
     };
 
     const render = () => {
-      if (!ready || Math.abs(theta - lastTheta) < 0.004) return;
+      if (!ready || Math.abs(theta - lastTheta) < MIN_STEP) return;
       lastTheta = theta;
       ready(theta);
     };
@@ -134,7 +139,7 @@ export default function RollingPin({ pinRef, drawRef }) {
       <div className="absolute inset-x-[6%] top-[62%] h-[70%] rounded-full" style={{ background: "radial-gradient(ellipse at center, rgb(70 35 5 / .38), transparent 70%)", filter: "blur(6px)" }} />
       {/* عکس اصلی: تا وقتی چرخش آماده شود و در زاویهٔ صفر دیده می‌شود */}
       <img src={`${BASE}brand/rolling-pin.webp`} alt="" draggable="false" className="absolute inset-0 block h-full w-full" />
-      <canvas ref={canvasRef} width={Math.round(PIN_W * SCALE)} height={Math.round(PIN_H * SCALE)} className="absolute inset-0 h-full w-full" />
+      <canvas ref={canvasRef} className="absolute inset-0 h-full w-full" />
     </div>
   );
 }

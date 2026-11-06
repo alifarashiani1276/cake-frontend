@@ -1,6 +1,7 @@
 import { useEffect, useRef } from "react";
 import { STORY } from "../data/site";
 import Logo from "../components/layout/Logo";
+import { subscribeScroll } from "../lib/scrollBus";
 
 // کلمه‌ها با پیشرفت اسکرول یکی‌یکی روشن می‌شوند
 export default function Story() {
@@ -10,16 +11,26 @@ export default function Story() {
 
   useEffect(() => {
     const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    const on = () => {
-      const r = sec.current.getBoundingClientRect();
-      const p = reduced ? 1 : Math.min(1, Math.max(0, -r.top / (r.height - window.innerHeight)));
-      const lit = p * (words.length + 4);
-      spans.current.forEach((el, i) => el && (el.style.opacity = 0.14 + 0.86 * Math.min(1, Math.max(0, lit - i))));
-    };
-    on();
-    window.addEventListener("scroll", on, { passive: true });
-    window.addEventListener("resize", on);
-    return () => { window.removeEventListener("scroll", on); window.removeEventListener("resize", on); };
+    const last = [];
+    return subscribeScroll({
+      read: () => {
+        const r = sec.current.getBoundingClientRect();
+        const vh = window.innerHeight;
+        // وقتی بخش اصلاً روی صفحه نیست، هیچ کاری لازم نیست
+        if (!reduced && (r.bottom < -vh || r.top > vh * 2)) return null;
+        return reduced ? 1 : Math.min(1, Math.max(0, -r.top / (r.height - vh)));
+      },
+      write: (p) => {
+        if (p === null) return;
+        const lit = p * (words.length + 4);
+        spans.current.forEach((el, i) => {
+          if (!el) return;
+          // مقدار گرد می‌شود تا برای تغییرهای ناچیز روی DOM چیزی نوشته نشود
+          const o = Math.round((0.14 + 0.86 * Math.min(1, Math.max(0, lit - i))) * 50) / 50;
+          if (last[i] !== o) { last[i] = o; el.style.opacity = o; }
+        });
+      },
+    });
   }, [words.length]);
 
   return (

@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { BRAND, NAV, CTA } from "../../data/site";
 import Logo from "./Logo";
+import { subscribeScroll } from "../../lib/scrollBus";
 
 const SHRINK_PX = 160; // با ۱۶۰ پیکسل اسکرول، هدر کامل کوچک می‌شود
 
@@ -10,28 +11,33 @@ export default function Header() {
   const [tone, setTone] = useState("light"); // light = متن روشن روی زمینهٔ تیره، dark = متن تیره روی زمینهٔ روشن
   const root = useRef(null);
 
-  // کوچک‌شدن هدر مستقیم با اسکرول (--p از ۰ تا ۱)؛ هدر همیشه سرجایش می‌ماند و پس‌زمینه ندارد
+  // کوچک‌شدن هدر مستقیم با اسکرول (--p از ۰ تا ۱)؛ هدر همیشه سرجایش می‌ماند و پس‌زمینه ندارد.
+  // خواندن (اندازه‌ها) و نوشتن (استایل) از طریق scrollBus جدا از هم و یک بار در هر فریم انجام می‌شود.
   useEffect(() => {
     let lastColor = "";
-    const on = () => {
-      root.current?.style.setProperty("--p", Math.min(1, window.scrollY / SHRINK_PX).toFixed(3));
-      // آخرین بخشِ دارای data-tone که زیر هدر است تعیین‌کنندهٔ رنگ متن است
-      let t = "light", c = null;
-      document.querySelectorAll("[data-tone]").forEach((el) => {
-        const r = el.getBoundingClientRect();
-        if (r.top <= 44 && r.bottom > 44) { t = el.dataset.tone; c = el.dataset.color || c; }
-      });
-      setTone(t);
-      // زمینهٔ صفحه و رنگ نوار مرورگر (حتی زیر دکمه‌های لمسی گوشی) با بخش فعلی یکی می‌شود
-      if (c && c !== lastColor) {
-        lastColor = c;
-        document.documentElement.style.backgroundColor = c;
-        document.querySelector('meta[name="theme-color"]')?.setAttribute("content", c);
-      }
-    };
-    on();
-    window.addEventListener("scroll", on, { passive: true });
-    return () => window.removeEventListener("scroll", on);
+    let lastP = "";
+    const tones = Array.from(document.querySelectorAll("[data-tone]")); // یک بار؛ بخش‌ها ثابت‌اند
+    return subscribeScroll({
+      read: () => {
+        // آخرین بخشِ دارای data-tone که زیر هدر است تعیین‌کنندهٔ رنگ متن است
+        let t = "light", c = null;
+        for (const el of tones) {
+          const r = el.getBoundingClientRect();
+          if (r.top <= 44 && r.bottom > 44) { t = el.dataset.tone; c = el.dataset.color || c; }
+        }
+        return { p: Math.min(1, window.scrollY / SHRINK_PX).toFixed(3), t, c };
+      },
+      write: ({ p, t, c }) => {
+        if (p !== lastP) { lastP = p; root.current?.style.setProperty("--p", p); }
+        setTone(t);
+        // زمینهٔ صفحه و رنگ نوار مرورگر (حتی زیر دکمه‌های لمسی گوشی) با بخش فعلی یکی می‌شود
+        if (c && c !== lastColor) {
+          lastColor = c;
+          document.documentElement.style.backgroundColor = c;
+          document.querySelector('meta[name="theme-color"]')?.setAttribute("content", c);
+        }
+      },
+    });
   }, []);
 
   useEffect(() => {
@@ -55,7 +61,7 @@ export default function Header() {
     <>
       {/* بدون پس‌زمینه؛ رنگ متن با بخشی که زیر هدر است عوض می‌شود تا همیشه خوانا بماند */}
       <header ref={root} style={{ "--p": 0 }} className={`pointer-events-none fixed inset-x-0 top-0 z-40 transition-colors duration-500 [--h0:72px] md:[--h0:96px] ${tone === "dark" && !open ? "text-ink" : "text-cream"}`}>
-        <div className="pointer-events-auto mx-auto grid max-w-7xl grid-cols-[1fr_auto_1fr] items-center px-5 md:px-10" style={{ height: "calc(var(--h0) - 28px * var(--p))" }}>
+        <div className="pointer-events-auto mx-auto grid max-w-7xl grid-cols-[1fr_auto_1fr] items-center px-5 md:px-10" style={{ height: "var(--h0)", transform: "translate3d(0, calc(-14px * var(--p)), 0)" }}>
           <div className="justify-self-start">
             <nav aria-label="منوی اصلی" className="hidden items-center gap-9 md:flex">
               {NAV.map((n) => (
@@ -81,7 +87,7 @@ export default function Header() {
         </div>
       </header>
 
-      <div id="mobile-menu" className={`fixed inset-0 z-30 bg-navy/97 text-cream backdrop-blur-2xl transition-opacity duration-500 md:hidden ${open ? "opacity-100" : "pointer-events-none opacity-0"}`} aria-hidden={!open} inert={!open}>
+      <div id="mobile-menu" className={`fixed inset-0 z-30 bg-navy/97 text-cream backdrop-blur-2xl transition-[opacity,visibility] duration-500 md:hidden ${open ? "opacity-100" : "pointer-events-none invisible opacity-0"}`} aria-hidden={!open} inert={!open}>
         <nav aria-label="منوی موبایل" className="flex h-full flex-col justify-center gap-1 px-8 pb-10 pt-28">
           {NAV.map((n, i) => (
             <a key={n.id} href={n.href} onClick={() => setOpen(false)} style={{ transitionDelay: open ? `${120 + i * 80}ms` : "0ms" }}
